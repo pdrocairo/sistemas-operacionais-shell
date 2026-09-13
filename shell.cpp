@@ -1,6 +1,22 @@
 #include <iostream>   // std::cout, std::cin, std::endl
 #include <unistd.h>   // fork(), execve(), access() -- chamadas POSIX do Unix
 #include <sys/wait.h> // para waitpid()
+#include <string>
+#include <vector>
+#include <deque>
+#include <cstdlib> // getenv()
+
+
+extern char** environ; //variavel de ambiente do processo atual
+
+namespace Session {
+    std::deque<std::string> history;
+}
+
+std::string get_prompt() {
+    return "$";
+}
+
 
 
 void process_command(std::string command) {
