@@ -12,6 +12,8 @@
 extern char** environ; //Isso aponta para uma variável que já existe globalmente no sistema
                        //ex de variavel: "NOME=valor". Usaremos ao chamarmos execve.
 
+void process_command(const std::string& line); // evitar erro de execucao, pois metodo era declarado e criado dps de outro metodo que o chamava
+
 std::string get_home(){
     const char* home = getenv("HOME");
     if (home == nullptr){
@@ -22,6 +24,22 @@ std::string get_home(){
 
 namespace Session {//package para guardar historico evitando conflito
     std::deque<std::string> history; // usado deck para facilitar adicao e remocao
+
+
+    void add(const std::string& command) {
+        history.push_front(command);      // comando novo sempre entra na frente (indice 0)
+        if (history.size() > 10) {
+            history.pop_back();           // se passar de 10, tira o mais antigo do fim
+        }
+    }
+
+    void print() {
+        // imprime do mais antigo (indice maior) pro mais recente (indice 0)
+        for (int i = (int)history.size() - 1; i >= 0; i--) {
+            std::cout << i << " " << history[i] << std::endl;
+        }
+    }
+
 }
 
 std::string get_prompt() {
@@ -111,7 +129,7 @@ void execute_external_command(const std::string& path, std::vector<std::string>&
     }
 }
 
-bool execute_external_command(const std::vector<std::string>& args) {
+bool execute_internal_command(const std::vector<std::string>& args) {
     const std::string& command = args[0];
 
     if (command == "exit") {
@@ -151,6 +169,37 @@ bool execute_external_command(const std::vector<std::string>& args) {
         }
         return true;
     }
+
+    if (command == "history") {
+
+        if (args.size() == 1) {
+            // "history" sem argumentos 
+            Session::print();
+            return true;
+        }
+
+        if (args[1] == "-c") {
+            // "history -c" -- apaga tudo
+            Session::history.clear();
+            return true;
+        }
+
+        // "history N" 
+        try {
+            int offset = std::stoi(args[1]);
+            if (offset < 0 || offset >= (int)Session::history.size()) {
+                std::cout << "history: offset invalido: " << args[1] << std::endl;
+                return true;
+            }
+            std::string saved_command = Session::history[offset];
+            std::cout << saved_command << std::endl;
+            process_command(saved_command); 
+        } catch (...) {
+            std::cout << "history: argumento invalido: " << args[1] << std::endl;
+        }
+        return true;
+    }
+    
     return false;
 }
 
@@ -158,6 +207,10 @@ void process_command(const std::string& line) {
     std::vector<std::string> args = parse_command(line);
 
     if (args.empty()){
+        return;
+    }
+
+    if (execute_internal_command(args)){
         return;
     }
 
@@ -183,6 +236,10 @@ int main() {
         if (!std::getline(std::cin, line)) break; // Ctrl+D encerra a shell sem travar
  
         process_command(line);
+
+        if (!line.empty()) {
+            Session::add(line);
+        }
     }
     return 0;
 }
